@@ -1,0 +1,360 @@
+# Medical Terminology for Clinical Trial Protocols
+# Simple dictionary for consistency checking
+
+medical_terms:
+  # Core clinical trial terminology
+  study_terminology:
+    preferred_terms:
+      "participant": ["subject", "patient", "individual"]
+      "adverse event": ["AE", "adverse reaction", "side effect", "untoward medical occurrence"]
+      "serious adverse event": ["SAE", "serious adverse reaction", "life-threatening event"]
+      "investigational medicinal product": ["IMP", "study drug", "test drug", "experimental drug"]
+      "randomization": ["randomisation", "random assignment", "random allocation"]
+      "double-blind": ["double-blinded", "double-masked"]
+      "placebo-controlled": ["placebo control", "sham-controlled"]
+      "primary endpoint": ["primary outcome", "main endpoint", "primary efficacy endpoint"]
+      "secondary endpoint": ["secondary outcome", "exploratory endpoint"]
+      "inclusion criteria": ["eligibility criteria", "entry criteria"]
+      "exclusion criteria": ["exclusion requirements", "ineligibility criteria"]
+
+  # Standard medical abbreviations
+  abbreviations:
+    "AE": "Adverse Event"
+    "SAE": "Serious Adverse Event"
+    "IMP": "Investigational Medicinal Product"
+    "GCP": "Good Clinical Practice"
+    "ICH": "International Council for Harmonisation"
+    "CRF": "Case Report Form"
+    "IRB": "Institutional Review Board"
+    "EC": "Ethics Committee"
+    "PI": "Principal Investigator"
+    "CRA": "Clinical Research Associate"
+    "SUSAR": "Suspected Unexpected Serious Adverse Reaction"
+    "DSMB": "Data Safety Monitoring Board"
+    "FDA": "Food and Drug Administration"
+    "EMA": "European Medicines Agency"
+    "ITT": "Intent-to-Treat"
+    "PP": "Per Protocol"
+
+  # Clinical measurement units
+  measurement_units:
+    dosage_units: ["mg", "g", "kg", "μg", "ng", "mL", "L", "units", "IU"]
+    frequency_terms: ["daily", "twice daily", "BID", "TID", "QID", "weekly", "monthly", "once daily", "every 8 hours"]
+    routes: ["oral", "IV", "IM", "SC", "topical", "sublingual", "rectal", "inhalation"]
+    formulations: ["tablet", "capsule", "injection", "solution", "cream", "ointment", "patch"]
+
+  # Safety terminology
+  safety_terms:
+    severity_grades: ["mild", "moderate", "severe", "life-threatening"]
+    causality_terms: ["related", "unrelated", "possibly related", "probably related", "definitely related"]
+    outcomes: ["recovered", "recovering", "not recovered", "fatal", "unknown"]
+
+  # Required regulatory language - SECTION SPECIFIC
+  regulatory_phrases:
+    # Only required in specific sections (ethics, safety, regulatory)
+    ethics_and_regulatory_sections:
+      required:
+        - "Good Clinical Practice"
+        - "regulatory requirements" 
+        - "ethics committee approval"
+        - "informed consent"
+        - "Declaration of Helsinki"
+      sections: ["15.1", "15.2", "10.1", "ethics", "regulatory", "informed consent"]
+    
+    # General quality terms (can appear anywhere)
+    general_quality_terms:
+      preferred:
+        - "appropriate"
+        - "sufficient"
+        - "reliable"
+        - "valid"
+        - "clinically relevant"
+        - "safety"
+        - "efficacy"
+    
+    avoid:
+      - "guarantee"
+      - "completely safe"
+      - "no side effects"
+      - "cure"
+      - "miraculous"
+      - "always effective"
+      - "never fails"
+      - "100% safe"
+      - "risk-free"
+      - "perfect"
+    
+    # ICH M11 preferred terminology
+    preferred_clinical_terms:
+      "investigational product": ["drug", "medication", "compound"]
+      "participants": ["subjects", "patients"]
+      "trial": ["study"]
+      "randomized": ["randomised"]
+      "adverse event": ["side effect", "adverse reaction"]
+      "serious adverse event": ["serious side effect"]
+      "efficacy": ["effectiveness"]
+      "safety": ["tolerability"]
+
+  # Comprehensive Medical Terms Dictionary - for filtering false grammar positives
+  medical_dictionary:
+    # Diabetes medications and related terms
+    diabetes_terms:
+      - "sitagliptin"
+      - "metformin"
+      - "sulfonylurea"
+      - "sulfonylureas"
+      - "glimepiride"
+      - "glyburide"
+      - "glipizide"
+      - "pioglitazone"
+      - "rosiglitazone"
+      - "insulin"
+      - "glucagon"
+      - "semaglutide"
+      - "liraglutide"
+      - "exenatide"
+      - "dulaglutide"
+      - "empagliflozin"
+      - "canagliflozin"
+      - "dapagliflozin"
+      - "mellitus"
+      - "glycemic"
+      - "glycaemic"
+      - "hyperglycemia"
+      - "hyperglycaemia"
+      - "hypoglycemia"
+      - "hypoglycaemia"
+      - "hemoglobin"
+      - "haemoglobin"
+
+    # Cardiovascular medications
+    cardiovascular_terms:
+      - "atorvastatin"
+      - "simvastatin"
+      - "rosuvastatin"
+      - "pravastatin"
+      - "lovastatin"
+      - "amlodipine"
+      - "lisinopril"
+      - "enalapril"
+      - "losartan"
+      - "valsartan"
+      - "carvedilol"
+      - "metoprolol"
+      - "bisoprolol"
+      - "warfarin"
+      - "apixaban"
+      - "rivaroxaban"
+      - "dabigatran"
+      - "clopidogrel"
+      - "aspirin"
+      - "acetylsalicylic"
+
+    # Oncology terms
+    oncology_terms:
+      - "chemotherapy"
+      - "radiotherapy"
+      - "immunotherapy"
+      - "pembrolizumab"
+      - "nivolumab"
+      - "atezolizumab"
+      - "durvalumab"
+      - "trastuzumab"
+      - "bevacizumab"
+      - "rituximab"
+      - "cetuximab"
+      - "paclitaxel"
+      - "docetaxel"
+      - "carboplatin"
+      - "cisplatin"
+      - "doxorubicin"
+      - "cyclophosphamide"
+      - "methotrexate"
+      - "leucovorin"
+      - "fluorouracil"
+      - "gemcitabine"
+      - "oxaliplatin"
+      - "irinotecan"
+      - "etoposide"
+      - "vincristine"
+      - "vinblastine"
+      - "bleomycin"
+      - "mitomycin"
+
+    # Infectious disease terms
+    infectious_disease_terms:
+      - "antibiotic"
+      - "antibiotics"
+      - "amoxicillin"
+      - "azithromycin"
+      - "ciprofloxacin"
+      - "levofloxacin"
+      - "doxycycline"
+      - "clindamycin"
+      - "vancomycin"
+      - "linezolid"
+      - "ceftriaxone"
+      - "cefuroxime"
+      - "penicillin"
+      - "ampicillin"
+      - "trimethoprim"
+      - "sulfamethoxazole"
+      - "antiviral"
+      - "antivirals"
+      - "acyclovir"
+      - "valacyclovir"
+      - "oseltamivir"
+      - "zanamivir"
+      - "antifungal"
+      - "fluconazole"
+      - "itraconazole"
+      - "voriconazole"
+      - "amphotericin"
+
+    # General medical conditions
+    medical_conditions:
+      - "hypertension"
+      - "hypotension"
+      - "tachycardia"
+      - "bradycardia"
+      - "arrhythmia"
+      - "myocardial"
+      - "infarction"
+      - "angina"
+      - "pectoris"
+      - "atherosclerosis"
+      - "thrombosis"
+      - "embolism"
+      - "ischemia"
+      - "ischaemia"
+      - "stenosis"
+      - "aneurysm"
+      - "fibrillation"
+      - "pneumonia"
+      - "bronchitis"
+      - "asthma"
+      - "emphysema"
+      - "tuberculosis"
+      - "hepatitis"
+      - "cirrhosis"
+      - "nephritis"
+      - "nephropathy"
+      - "neuropathy"
+      - "retinopathy"
+      - "cardiomyopathy"
+      - "endocarditis"
+      - "pericarditis"
+      - "gastritis"
+      - "colitis"
+      - "pancreatitis"
+      - "arthritis"
+      - "osteoporosis"
+      - "fibromyalgia"
+      - "epilepsy"
+      - "migraine"
+      - "alzheimer"
+      - "parkinson"
+      - "dementia"
+      - "schizophrenia"
+      - "depression"
+      - "anxiety"
+
+    # Medical procedures and techniques
+    medical_procedures:
+      - "angioplasty"
+      - "catheterization"
+      - "catheterisation"
+      - "endoscopy"
+      - "colonoscopy"
+      - "bronchoscopy"
+      - "laparoscopy"
+      - "arthroscopy"
+      - "biopsy"
+      - "aspiration"
+      - "intubation"
+      - "tracheostomy"
+      - "thoracotomy"
+      - "craniotomy"
+      - "appendectomy"
+      - "cholecystectomy"
+      - "hysterectomy"
+      - "mastectomy"
+      - "nephrectomy"
+      - "prostatectomy"
+      - "tonsillectomy"
+      - "adenoidectomy"
+
+    # Laboratory and diagnostic terms
+    laboratory_terms:
+      - "electrocardiogram"
+      - "echocardiogram"
+      - "ultrasonography"
+      - "mammography"
+      - "radiography"
+      - "tomography"
+      - "angiography"
+      - "urinalysis"
+      - "hematology"
+      - "haematology"
+      - "biochemistry"
+      - "histopathology"
+      - "cytology"
+      - "serology"
+      - "microbiology"
+      - "parasitology"
+      - "virology"
+      - "bacteriology"
+      - "immunology"
+      - "endocrinology"
+      - "cardiology"
+      - "neurology"
+      - "oncology"
+      - "dermatology"
+      - "ophthalmology"
+      - "otolaryngology"
+      - "gastroenterology"
+      - "pulmonology"
+      - "nephrology"
+      - "urology"
+      - "gynecology"
+      - "gynaecology"
+      - "obstetrics"
+      - "pediatrics"
+      - "paediatrics"
+      - "geriatrics"
+      - "psychiatry"
+      - "anesthesiology"
+      - "anaesthesiology"
+
+    # Clinical trial specific terms
+    clinical_trial_terms:
+      - "randomization"
+      - "randomisation"
+      - "blinding"
+      - "placebo"
+      - "washout"
+      - "crossover"
+      - "bioequivalence"
+      - "pharmacokinetics"
+      - "pharmacodynamics"
+      - "bioavailability"
+      - "biomarker"
+      - "endpoint"
+      - "efficacy"
+      - "tolerability"
+      - "pharmacovigilance"
+      - "adverse"
+      - "contraindication"
+      - "concomitant"
+      - "comorbidity"
+      - "comorbidities"
+      - "inclusion"
+      - "exclusion"
+      - "stratification"
+      - "interim"
+      - "futility"
+
+# Pattern matching for dosage validation
+dosage_patterns:
+  valid_format: r"\d+(\.\d+)?\s*(mg|g|kg|μg|ng|mL|L|units|IU)(\s*/\s*(kg|m²|day|week))?"
+  invalid_format: r"\d+\s*(milligrams|grams|kilograms|milliliters|liters)" 

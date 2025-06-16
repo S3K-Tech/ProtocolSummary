@@ -1,0 +1,36 @@
+# Core Framework
+streamlit>=1.28.0
+fastapi>=0.104.0
+uvicorn>=0.24.0
+pydantic>=2.0.0
+python-dotenv>=1.0.0
+
+# AI/ML Models
+openai>=1.0.0
+groq>=0.3.0
+tiktoken>=0.4.0
+
+# Embeddings & Vector Search
+llama-index==0.10.24
+llama-index-llms-openai==0.1.31
+llama-index-embeddings-openai==0.1.11
+llama-index-vector-stores-qdrant==0.2.17
+qdrant-client>=1.6.0
+
+# Document Processing
+PyPDF2>=3.0.0
+python-docx>=0.8.11
+reportlab>=4.0.0
+
+# Text Analysis
+language-tool-python>=2.7.1
+pyspellchecker>=0.7.2
+PyYAML>=6.0
+regex>=2023.10.3
+medspacy>=0.2.0
+
+# HTTP & Utilities
+requests>=2.31.0
+numpy>=1.21.0
+
+python-multipart

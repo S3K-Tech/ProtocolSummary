@@ -1,0 +1,722 @@
+# ICH M11 Clinical Electronic Structured Harmonised Protocol (CeSHarP) - Validation Rules
+# Based on official EMA ICH M11 guideline and technical specifications
+# Reference: https://www.ema.europa.eu/en/ich-m11-guideline-clinical-study-protocol-template-technical-specifications-scientific-guideline
+# Note: Uses section names as primary identifiers for flexibility across different protocol numbering schemes
+
+ich_m11_sections:
+
+  # ===== ADMINISTRATIVE INFORMATION =====
+  "protocol_title":
+    section_name: "Protocol Title"
+    alternate_names: ["Title", "Study Title", "Trial Title"]
+    section_numbers: ["1.1", "1", "Title"]  # Common numbering variations
+    category: "administrative"
+    priority: "high"
+    ich_requirement: "required"
+    required_content_elements:
+      study_design_type:
+        mandatory: true
+        keywords: ["randomized", "controlled", "double-blind", "parallel", "crossover"]
+      intervention_type:
+        mandatory: true
+        keywords: ["placebo-controlled", "active-controlled", "dose-ranging"]
+      population:
+        mandatory: true
+        keywords: ["patients", "subjects", "participants"]
+      condition:
+        mandatory: true
+        validation: "specific_medical_condition"
+    language_requirements:
+      max_words: 50
+      clarity: "high"
+      specificity: "high"
+    
+  "protocol_number":
+    section_name: "Protocol Number"
+    alternate_names: ["Protocol ID", "Study Number", "Protocol Identifier"]
+    section_numbers: ["1.2", "1.1", "Protocol Number"]
+    category: "administrative"
+    ich_requirement: "required"
+    format_requirements:
+      pattern: "[A-Z0-9-]+"
+      uniqueness: true
+    
+  "version_and_date":
+    section_name: "Version and Date"
+    alternate_names: ["Protocol Version", "Version Date", "Amendment Date"]
+    section_numbers: ["1.3", "1.2", "Version"]
+    category: "administrative"
+    ich_requirement: "required"
+    format_requirements:
+      date_format: "DD MMM YYYY"
+      version_control: true
+      version_numbering: "semantic_versioning_preferred"
+
+  # ===== BACKGROUND AND RATIONALE =====
+  "background":
+    section_name: "Background"
+    alternate_names: ["Medical Background", "Disease Background", "Clinical Background"]
+    section_numbers: ["2.1", "2", "Background"]
+    category: "background"
+    priority: "high"
+    ich_requirement: "required"
+    required_content_elements:
+      medical_condition:
+        mandatory: true
+        keywords: ["disease", "condition", "disorder", "syndrome"]
+        requires_prevalence: true
+      unmet_medical_need:
+        mandatory: true
+        keywords: ["current treatment", "limitations", "unmet need"]
+      scientific_rationale:
+        mandatory: true
+        requires_references: true
+    content_requirements:
+      min_words: 100
+      max_words: 600
+      literature_references: required
+      epidemiological_data: preferred
+    
+  "rationale_for_trial":
+    section_name: "Rationale for Trial"
+    alternate_names: ["Trial Rationale", "Study Rationale", "Rationale for Study"]
+    section_numbers: ["2.2", "2.1", "Rationale"]
+    category: "background"
+    priority: "high"
+    ich_requirement: "required"
+    required_content_elements:
+      hypothesis:
+        mandatory: true
+        keywords: ["hypothesis", "expected", "anticipated"]
+      benefit_risk:
+        mandatory: true
+        keywords: ["benefit", "risk", "safety", "efficacy"]
+      target_population_justification:
+        mandatory: true
+    language_requirements:
+      scientific_rigor: true
+      evidence_based: true
+
+  # ===== TRIAL OBJECTIVES, ENDPOINTS, AND ESTIMANDS =====
+  "primary_objective":
+    section_name: "Primary Objective"
+    alternate_names: ["Primary Study Objective", "Main Objective", "Primary Trial Objective"]
+    section_numbers: ["3.1", "3", "Primary Objective"]
+    category: "objectives"
+    priority: "high"
+    ich_requirement: "required"
+    required_content_elements:
+      clear_objective_statement:
+        mandatory: true
+        format: "specific_measurable_achievable_relevant_timebound"
+      intervention_description:
+        mandatory: true
+      target_population:
+        mandatory: true
+    language_requirements:
+      clarity: "very_high"
+      single_objective_preferred: true
+      measurability: required
+    
+  "secondary_objectives":
+    section_name: "Secondary Objectives"
+    alternate_names: ["Secondary Study Objectives", "Additional Objectives", "Exploratory Objectives"]
+    section_numbers: ["3.2", "3.1", "Secondary Objectives"]
+    category: "objectives"
+    ich_requirement: "optional"
+    required_content_elements:
+      multiple_objectives:
+        allowed: true
+        format: "numbered_list"
+      exploratory_vs_confirmatory:
+        specification: required
+    
+  "3.3_primary_endpoint":
+    category: "endpoints"
+    priority: "high"
+    required_content_elements:
+      endpoint_definition:
+        mandatory: true
+        specificity: "very_high"
+      measurement_method:
+        mandatory: true
+      timepoint_specification:
+        mandatory: true
+      statistical_analysis_plan:
+        reference_required: true
+    validation_requirements:
+      single_primary_endpoint: preferred
+      clinically_relevant: required
+      regulatory_acceptable: required
+    
+  "3.4_secondary_endpoints":
+    category: "endpoints"
+    required_content_elements:
+      endpoint_hierarchy:
+        recommended: true
+      multiple_testing_consideration:
+        required: true
+    
+  "3.5_estimands":
+    category: "estimands"
+    required_content_elements:
+      population_definition:
+        mandatory: true
+      variable_definition:
+        mandatory: true
+      intercurrent_events:
+        mandatory: true
+      population_level_summary:
+        mandatory: true
+
+  # ===== SECTION 4: TRIAL DESIGN =====
+  "4.1_description_of_trial_design":
+    category: "trial_design"
+    priority: "high"
+    required_content_elements:
+      study_design_type:
+        mandatory: true
+        keywords: ["randomized", "controlled", "parallel", "crossover", "factorial"]
+      blinding_description:
+        mandatory: true
+        options: ["open-label", "single-blind", "double-blind", "triple-blind"]
+      randomization_method:
+        mandatory: true
+        keywords: ["simple", "block", "stratified", "adaptive"]
+      treatment_arms:
+        mandatory: true
+        min_arms: 2
+      study_duration:
+        mandatory: true
+        components: ["screening", "treatment", "follow-up"]
+    structure_requirements:
+      logical_flow: true
+      comprehensive_coverage: true
+    
+  "rationale_for_trial_design":
+    section_name: "Rationale for Trial Design"
+    alternate_names: ["Trial Design Rationale", "Design Rationale", "Rationale for Study Design"]
+    section_numbers: ["4.2", "4.1", "Rationale for Trial Design"]
+    category: "trial_design"
+    priority: "high"
+    ich_requirement: "required"
+    required_content_elements:
+      intervention_model_rationale:
+        mandatory: true
+        keywords: ["rationale", "justification", "appropriate"]
+      duration_justification:
+        mandatory: true
+        keywords: ["duration", "sufficient", "appropriate"]
+      endpoint_rationale:
+        mandatory: true
+        keywords: ["clinically relevant", "reliable", "valid"]
+      interim_analysis_rationale:
+        conditional: "if_applicable"
+    content_requirements:
+      min_words: 75  # More realistic for rationale sections
+      max_words: 400
+      scientific_justification: required
+    
+  "4.3_rationale_for_comparator":
+    category: "trial_design"
+    required_content_elements:
+      comparator_selection:
+        mandatory: true
+        options: ["placebo", "active_control", "historical_control"]
+      ethical_justification:
+        mandatory: true
+      regulatory_precedent:
+        preferred: true
+    
+  "4.4_end_of_trial_definition":
+    category: "trial_design"
+    required_content_elements:
+      clear_definition:
+        mandatory: true
+      last_participant_criteria:
+        mandatory: true
+
+  # ===== SECTION 5: SELECTION AND WITHDRAWAL OF PARTICIPANTS =====
+  "5.1_participant_selection":
+    category: "participant_selection"
+    required_content_elements:
+      screening_procedures:
+        mandatory: true
+      eligibility_assessment:
+        mandatory: true
+      informed_consent_process:
+        mandatory: true
+    
+  "5.2_withdrawal_criteria":
+    category: "participant_selection"
+    required_content_elements:
+      withdrawal_reasons:
+        mandatory: true
+        categories: ["voluntary", "safety", "protocol_violation"]
+      procedures_for_withdrawal:
+        mandatory: true
+      follow_up_requirements:
+        mandatory: true
+
+  # ===== SECTION 6: STUDY POPULATION =====
+  "6.1_study_population":
+    category: "study_population"
+    priority: "high"
+    required_content_elements:
+      target_population:
+        mandatory: true
+        specificity: "high"
+      demographic_characteristics:
+        mandatory: true
+      disease_characteristics:
+        mandatory: true
+      recruitment_strategy:
+        mandatory: true
+    content_requirements:
+      min_words: 100
+      max_words: 300
+    
+  "inclusion_criteria":
+    section_name: "Inclusion Criteria"
+    alternate_names: ["Eligibility Criteria", "Entry Criteria", "Participant Inclusion Criteria"]
+    section_numbers: ["6.2", "6.1", "Inclusion Criteria"]
+    category: "study_population"
+    priority: "high"
+    ich_requirement: "required"
+    required_content_elements:
+      specific_criteria:
+        mandatory: true
+        format: "numbered_list"
+        min_criteria: 5
+        max_criteria: 15
+      age_specification:
+        mandatory: true
+      gender_specification:
+        optional: true
+      medical_condition_definition:
+        mandatory: true
+      contraception_requirements:
+        conditional: "if_applicable"
+    validation_requirements:
+      specificity: "very_high"
+      measurability: required
+      achievability: required
+    
+  "exclusion_criteria":
+    section_name: "Exclusion Criteria"
+    alternate_names: ["Exclusion Requirements", "Participant Exclusions", "Exclusion Conditions"]
+    section_numbers: ["6.3", "6.2", "Exclusion Criteria"]
+    category: "study_population"
+    priority: "high"
+    ich_requirement: "required"
+    required_content_elements:
+      safety_exclusions:
+        mandatory: true
+      medical_exclusions:
+        mandatory: true
+      concomitant_medication_restrictions:
+        mandatory: true
+      pregnancy_exclusions:
+        conditional: "if_applicable"
+    format_requirements:
+      numbered_list: true
+      parallel_structure: true
+    
+  "6.4_lifestyle_considerations":
+    category: "study_population"
+    required_content_elements:
+      dietary_restrictions:
+        conditional: "if_applicable"
+      activity_restrictions:
+        conditional: "if_applicable"
+      compliance_requirements:
+        mandatory: true
+
+  # ===== SECTION 7: TREATMENT/INTERVENTION =====
+  "7.1_treatments_administered":
+    category: "treatment"
+    priority: "high"
+    required_content_elements:
+      investigational_product:
+        mandatory: true
+        details: ["name", "dosage", "route", "frequency"]
+      comparator_details:
+        conditional: "if_applicable"
+      concomitant_medications:
+        mandatory: true
+    content_requirements:
+      dosage_precision: required
+      administration_instructions: detailed
+    
+  "7.2_method_of_treatment_assignment":
+    category: "treatment"
+    required_content_elements:
+      randomization_procedure:
+        mandatory: true
+      stratification_factors:
+        conditional: "if_applicable"
+      blinding_procedures:
+        mandatory: true
+    
+  "7.3_treatment_compliance":
+    category: "treatment"
+    required_content_elements:
+      compliance_monitoring:
+        mandatory: true
+      accountability_procedures:
+        mandatory: true
+
+  # ===== SECTION 8: PROCEDURES AND ASSESSMENTS =====
+  "8.1_study_procedures":
+    category: "procedures"
+    priority: "high"
+    required_content_elements:
+      visit_schedule:
+        mandatory: true
+        format: "tabular_preferred"
+      screening_procedures:
+        mandatory: true
+      baseline_assessments:
+        mandatory: true
+      follow_up_procedures:
+        mandatory: true
+    content_requirements:
+      temporal_clarity: required
+      responsibility_assignment: preferred
+    
+  "8.2_efficacy_assessments":
+    category: "procedures"
+    required_content_elements:
+      assessment_methods:
+        mandatory: true
+      timing_specification:
+        mandatory: true
+      standardization_requirements:
+        mandatory: true
+    
+  "8.3_safety_assessments":
+    category: "procedures"
+    priority: "high"
+    required_content_elements:
+      adverse_event_monitoring:
+        mandatory: true
+      laboratory_assessments:
+        mandatory: true
+      vital_signs_monitoring:
+        mandatory: true
+      physical_examinations:
+        mandatory: true
+    safety_requirements:
+      frequency_specification: required
+      abnormal_value_procedures: required
+
+  # ===== SECTION 9: STATISTICAL CONSIDERATIONS =====
+  "9.1_statistical_hypotheses":
+    category: "statistics"
+    priority: "high"
+    required_content_elements:
+      null_hypothesis:
+        mandatory: true
+      alternative_hypothesis:
+        mandatory: true
+      statistical_test:
+        mandatory: true
+      significance_level:
+        mandatory: true
+        default: "0.05"
+    language_requirements:
+      mathematical_precision: required
+      statistical_rigor: required
+    
+  "9.2_sample_size_determination":
+    category: "statistics"
+    priority: "high"
+    required_content_elements:
+      sample_size_calculation:
+        mandatory: true
+      power_analysis:
+        mandatory: true
+        min_power: 0.80
+      effect_size:
+        mandatory: true
+      dropout_rate_assumption:
+        mandatory: true
+      justification:
+        mandatory: true
+    validation_requirements:
+      mathematical_accuracy: required
+      assumptions_stated: required
+    
+  "9.3_analysis_populations":
+    category: "statistics"
+    required_content_elements:
+      intent_to_treat:
+        mandatory: true
+      per_protocol:
+        recommended: true
+      safety_population:
+        mandatory: true
+    
+  "9.4_statistical_analysis_plan":
+    category: "statistics"
+    required_content_elements:
+      primary_analysis:
+        mandatory: true
+      secondary_analyses:
+        mandatory: true
+      interim_analyses:
+        conditional: "if_applicable"
+      missing_data_handling:
+        mandatory: true
+
+  # ===== SECTION 10: STOPPING RULES =====
+  "10.1_stopping_rules":
+    category: "stopping_rules"
+    required_content_elements:
+      efficacy_stopping:
+        conditional: "if_applicable"
+      futility_stopping:
+        conditional: "if_applicable"
+      safety_stopping:
+        mandatory: true
+      administrative_stopping:
+        recommended: true
+    content_requirements:
+      clear_criteria: required
+      decision_authority: specified
+
+  # ===== SECTION 11: DIRECT ACCESS TO SOURCE DATA/DOCUMENTS =====
+  "11.1_source_data_access":
+    category: "data_access"
+    required_content_elements:
+      monitoring_access:
+        mandatory: true
+      audit_access:
+        mandatory: true
+      regulatory_inspection_access:
+        mandatory: true
+    compliance_requirements:
+      gcp_compliance: required
+      regulatory_compliance: required
+
+  # ===== SECTION 12: SAFETY =====
+  "12.1_safety_monitoring":
+    category: "safety"
+    priority: "high"
+    required_content_elements:
+      adverse_event_collection:
+        mandatory: true
+      serious_adverse_event_reporting:
+        mandatory: true
+      laboratory_monitoring:
+        mandatory: true
+      vital_signs_monitoring:
+        mandatory: true
+    safety_framework:
+      monitoring_procedures:
+        timeframes: "clearly_defined"
+        responsibilities: "specified"
+      reporting_requirements:
+        regulatory_timeline: "specified"
+        causality_assessment: "required"
+        severity_grading: "standardized"
+    
+  "12.2_adverse_event_reporting":
+    category: "safety"
+    priority: "high"
+    required_content_elements:
+      ae_definition:
+        mandatory: true
+      sae_definition:
+        mandatory: true
+      reporting_procedures:
+        mandatory: true
+      timeline_requirements:
+        mandatory: true
+    regulatory_requirements:
+      gcp_compliance: required
+      local_regulations: required
+    
+  "12.3_pregnancy_reporting":
+    category: "safety"
+    required_content_elements:
+      pregnancy_procedures:
+        conditional: "if_applicable"
+      partner_pregnancy:
+        conditional: "if_applicable"
+      follow_up_requirements:
+        conditional: "if_applicable"
+
+  # ===== SECTION 13: DATA MANAGEMENT =====
+  "13.1_data_collection":
+    category: "data_management"
+    required_content_elements:
+      case_report_forms:
+        mandatory: true
+      electronic_data_capture:
+        preferred: true
+      data_entry_procedures:
+        mandatory: true
+    
+  "13.2_data_quality_assurance":
+    category: "data_management"
+    required_content_elements:
+      data_validation:
+        mandatory: true
+      query_resolution:
+        mandatory: true
+      data_review_procedures:
+        mandatory: true
+
+  # ===== SECTION 14: PUBLICATION AND DATA SHARING POLICY =====
+  "14.1_publication_policy":
+    category: "publication"
+    required_content_elements:
+      authorship_criteria:
+        mandatory: true
+      publication_timeline:
+        recommended: true
+      data_sharing_commitment:
+        recommended: true
+
+  # ===== SECTION 15: ETHICS =====
+  "15.1_ethics_approval":
+    category: "ethics"
+    priority: "high"
+    required_content_elements:
+      ethics_committee_approval:
+        mandatory: true
+      regulatory_approval:
+        mandatory: true
+      informed_consent:
+        mandatory: true
+    compliance_requirements:
+      declaration_of_helsinki: required
+      gcp_compliance: required
+      local_regulations: required
+    
+  "15.2_informed_consent":
+    category: "ethics"
+    priority: "high"
+    required_content_elements:
+      consent_process:
+        mandatory: true
+      capacity_assessment:
+        mandatory: true
+      withdrawal_rights:
+        mandatory: true
+      data_protection:
+        mandatory: true
+
+  # ===== SECTION 16: FINANCE AND INSURANCE =====
+  "16.1_financing":
+    category: "finance"
+    required_content_elements:
+      funding_source:
+        mandatory: true
+      financial_disclosure:
+        mandatory: true
+    
+  "16.2_insurance":
+    category: "finance"
+    required_content_elements:
+      participant_insurance:
+        mandatory: true
+      liability_coverage:
+        mandatory: true
+
+  # ===== SECTION 17: REFERENCES =====
+  "17.1_references":
+    category: "references"
+    required_content_elements:
+      literature_references:
+        mandatory: true
+        format: "standard_citation_style"
+      regulatory_guidance:
+        recommended: true
+    format_requirements:
+      citation_style: "consistent"
+      completeness: required
+      accuracy: required
+
+# ===== CROSS-SECTIONAL VALIDATION RULES =====
+cross_sectional_requirements:
+  terminology_consistency:
+    across_all_sections: true
+    key_terms: ["participant", "adverse event", "investigational product"]
+  
+  reference_integrity:
+    section_cross_references: validated
+    table_figure_references: validated
+    
+  regulatory_compliance:
+    gcp_adherence: "throughout_protocol"
+    ich_guidelines: "consistently_applied"
+    
+  language_quality:
+    clarity: "high_standard"
+    precision: "scientific_accuracy"
+    consistency: "terminology_and_style"
+
+# ===== SECTION CATEGORIES FOR PRIORITIZATION =====
+section_priorities:
+  critical: ["3.1", "3.3", "4.1", "4.2", "6.2", "6.3", "8.3", "9.1", "9.2", "12.1", "12.2", "15.1", "15.2"]
+  important: ["2.1", "2.2", "7.1", "8.1", "8.2", "13.1", "13.2"]
+  standard: ["1.1", "1.2", "5.1", "5.2", "10.1", "11.1", "14.1", "16.1", "17.1"]
+
+# ===== CONTENT DEPTH REQUIREMENTS =====
+content_depth_standards:
+  minimal: 50
+  standard: 100
+  detailed: 200
+  comprehensive: 400
+
+# ===== SECTION MATCHING CONFIGURATION =====
+# This enables flexible section identification across different protocol numbering schemes
+section_matching:
+  primary_identifier: "section_name"  # Use section name as primary identifier
+  fallback_identifiers: ["alternate_names", "section_numbers"]  # Fallback matching options
+  
+  # Section name normalization rules
+  name_normalization:
+    case_sensitive: false
+    remove_articles: true  # Remove "the", "a", "an"
+    remove_punctuation: true
+    synonym_mapping:
+      "rationale": ["justification", "reasoning"]
+      "criteria": ["requirements", "conditions"]
+      "objective": ["goal", "aim", "purpose"]
+      "endpoint": ["outcome", "measure"]
+      "population": ["participants", "subjects", "patients"]
+      "design": ["methodology", "approach"]
+      "safety": ["adverse events", "tolerability"]
+      "efficacy": ["effectiveness", "treatment effect"]
+
+  # Common section header patterns for automatic detection
+  header_patterns:
+    - r"^(\d+\.?\d*\.?\d*)\s*(.+)$"  # "4.2 Rationale for Trial Design"
+    - r"^(.+)\s*\((\d+\.?\d*\.?\d*)\)$"  # "Rationale for Trial Design (4.2)"
+    - r"^Section\s+(\d+\.?\d*\.?\d*):?\s*(.+)$"  # "Section 4.2: Rationale"
+    - r"^(.+?)(?:\s*-\s*Section\s+\d+)?$"  # "Rationale for Trial Design - Section 4"
+
+# ===== ICH M11 CeSHarP COMPLIANCE FRAMEWORK =====
+ich_cesarp_compliance:
+  template_version: "Step 2b"  # Current ICH M11 version
+  source_authority: "EMA"
+  reference_url: "https://www.ema.europa.eu/en/ich-m11-guideline-clinical-study-protocol-template-technical-specifications-scientific-guideline"
+  
+  harmonization_requirements:
+    standardized_content: true
+    electronic_exchange_format: true
+    interoperable_data: true
+    non_proprietary_standard: true
+    
+  technical_specifications:
+    conformance_validation: required
+    cardinality_checking: required
+    data_exchange_compatibility: required
+    
+  regulatory_acceptance:
+    ich_regions: ["EU", "US", "Japan"]
+    harmonized_review: true
+    cross_regional_consistency: required 

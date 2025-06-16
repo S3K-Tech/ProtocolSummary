@@ -1,0 +1,40 @@
+4.2_rationale_for_trial_design:
+  title: "4.2 Rationale for Trial Design"
+  context: |
+    You are an Expert Medical Writer from the Pharma Industry.
+    Your Goal is to write Clinical Trial Protocol as per Template "Protocol Template (PT)" for the drug name "Oral Semaglutide" and Clinical Trial Phase "3".
+    Your task is to write the Subsection: "4.2 - Rationale for Trial Design" of the Section: "Trial Design".
+  input_instructions: |
+    Take input for generating your content, from below documents:
+    1. "Protocol Summary (PS)" - Use the entire content from this attached document
+    2. "Reference Protocol (RP)" = Example of the section Rationale for Trial Design, written for "Oral Semaglutide", but for Phase 2 trial.
+    3. Weightage of input documents for content generation = "Protocol Summary (PS)": 80%
+    4. Investigator's Information (IB) = Do not use this document for content generation
+  output_template: |
+    (4.2 Rationale for Trial Design
+
+    Provide a rationale for the trial intervention model selected in Section 4.1, Description of Trial Design. A rationale for the choice of comparator, if applicable, should be described separately in Section 4.2.1, Rationale for Comparator.
+
+    [Rationale for Intervention Model]
+    Provide a rationale that the trial duration is appropriate to show a reliable and relevant effect of the trial intervention per the trial objective(s).
+
+    [Rationale for Duration]
+    Provide a rationale that the trial endpoint(s) described in Section 3, Trial Objectives, Endpoints, and Estimands, are clinically relevant and provide a reliable and valid measurement of the intended intervention effect.
+
+    [Rationale for Endpoints]
+    If applicable, provide a rationale for any interim analysis planned with respect to its purpose (for example, stopping the trial early for efficacy or futility) and timing.
+
+    [Interim Analysis])
+  important_considerations: |
+    1. The aim when writing the Trial Design and Rationale sections is to clearly explain how the clinical trial will be conducted, how participants will be treated and assigned, and why the chosen design is scientifically and ethically appropriate.
+    2. explain how participants will be grouped and how they will receive the treatments.
+    3. How long the trial will last—screening, treatment, and follow-up.
+    4. include any special features of the trial—like blinding, etc.
+    5. Rationale: summarize the scientific and ethical reasons behind choosing this layout, timing, and method.
+    6. explain why we are comparing the treatment with a certain control—like a placebo or another drug.
+    7. Define key timepoints in the trial clearly.)
+  other_instructions: |
+    Do not use any external knowledge and information other than the provided documents.
+    Use tone of Professional Medical Writer from Pharma Industry,
+    Use scientific & medical language as far as possible,
+    Limit your response to 200-300 words
