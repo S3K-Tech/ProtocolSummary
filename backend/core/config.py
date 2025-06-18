@@ -11,8 +11,8 @@ def get_config():
         'OPENAI_API_KEY': os.getenv('OPENAI_API_KEY'),
         'EMBEDDING_MODEL': os.getenv('EMBEDDING_MODEL', 'text-embedding-3-small'),
         'LLM_MODEL': os.getenv('LLM_MODEL', 'gpt-4-turbo'),
-        'QDRANT_URL': os.getenv('QDRANT_URL'),
-        'QDRANT_API_KEY': os.getenv('QDRANT_API_KEY'),
+        'SUPABASE_URL': os.getenv('SUPABASE_URL'),
+        'SUPABASE_KEY': os.getenv('SUPABASE_KEY'),
         'DEFAULT_MODEL': os.getenv('DEFAULT_MODEL', 'gpt-4-turbo'),
         'DEFAULT_PROVIDER': os.getenv('DEFAULT_PROVIDER', 'openai'),
         'DEFAULT_TEMPERATURE': float(os.getenv('DEFAULT_TEMPERATURE', '0.2')),
@@ -27,8 +27,8 @@ config = get_config()
 OPENAI_API_KEY = config['OPENAI_API_KEY']
 EMBEDDING_MODEL = config['EMBEDDING_MODEL']
 LLM_MODEL = config['LLM_MODEL']
-QDRANT_URL = config['QDRANT_URL']
-QDRANT_API_KEY = config['QDRANT_API_KEY']
+SUPABASE_URL = config['SUPABASE_URL']
+SUPABASE_KEY = config['SUPABASE_KEY']
 DEFAULT_MODEL = config['DEFAULT_MODEL']
 DEFAULT_PROVIDER = config['DEFAULT_PROVIDER']
 DEFAULT_TEMPERATURE = config['DEFAULT_TEMPERATURE']

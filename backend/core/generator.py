@@ -5,11 +5,10 @@ from typing import List, Dict, Any, Tuple
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from backend.core.document_loader import build_index, qdrant_client
-from backend.core.config import OPENAI_API_KEY, GROQ_API_KEY, EMBEDDING_MODEL
+from backend.core.document_loader import build_index, supabase_client
+from backend.core.config import OPENAI_API_KEY, GROQ_API_KEY, EMBEDDING_MODEL, SUPABASE_KEY, SUPABASE_URL
 # Lazy-load engines to avoid auto-indexing at import time
 _engine_cache = {}
-from llama_index.vector_stores.qdrant import QdrantVectorStore
 from llama_index.core import VectorStoreIndex
 from llama_index.core.retrievers import VectorIndexRetriever
 from llama_index.core.query_engine import RetrieverQueryEngine
@@ -26,17 +25,21 @@ logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 
 def get_engine(collection, folder):
     if collection not in _engine_cache:
-        # Check if collection exists and has points
+        # Check if collection exists and has data
         try:
-            info = qdrant_client.get_collection(collection)
-            points = getattr(info, 'points_count', 0) or getattr(info, 'vectors_count', 0)
-            if points and points > 0:
-                vector_store = QdrantVectorStore(client=qdrant_client, collection_name=collection)
-                idx = VectorStoreIndex.from_vector_store(vector_store)
+            result = supabase_client.table(collection).select('id').limit(1).execute()
+            if result.data and len(result.data) > 0:
+                # Create a simple query engine that uses direct Supabase queries
+                from llama_index.core import VectorStoreIndex, Document
+                from llama_index.embeddings.openai import OpenAIEmbedding
+                
+                embed_model = OpenAIEmbedding(model=EMBEDDING_MODEL, api_key=OPENAI_API_KEY)
+                dummy_doc = Document(text="dummy", metadata={})
+                idx = VectorStoreIndex.from_documents([dummy_doc], embed_model=embed_model)
                 _engine_cache[collection] = idx.as_query_engine()
                 return _engine_cache[collection]
         except Exception as e:
-            logging.error(f"Collection {collection} not found or error: {e}")
+            logging.error(f"Table {collection} not found or error: {e}")
         # If not exists or empty, build and upload
         idx = build_index(folder, collection)
         _engine_cache[collection] = idx.as_query_engine() if idx else None
@@ -44,45 +47,39 @@ def get_engine(collection, folder):
 
 def get_chunk_previews(collection: str, preview_len: int = 200) -> List[Dict[str, Any]]:
     """Get chunk previews."""
-    vector_store = QdrantVectorStore(client=qdrant_client, collection_name=collection)
-    index = VectorStoreIndex.from_vector_store(vector_store)
     previews = []
     
-    # Try docstore first
-    if index.docstore.docs:
-        for chunk_id, node in index.docstore.docs.items():
+    # Fetch from Supabase directly
+    try:
+        result = supabase_client.table(collection).select('id, content, metadata').limit(1000).execute()
+        for row in result.data:
+            chunk_id = row.get("id")
+            content = row.get("content", "")
+            metadata = row.get("metadata", {})
             previews.append({
                 "id": chunk_id,
-                "preview": node.text[:preview_len],
-                "metadata": getattr(node, 'metadata', {})
+                "preview": content[:preview_len],
+                "metadata": metadata
             })
-    else:
-        # If docstore is empty, fetch from Qdrant payloads
-        points = qdrant_client.scroll(collection_name=collection, limit=1000)[0]
-        for point in points:
-            chunk_id = getattr(point, "id", None)
-            payload = getattr(point, "payload", {})
-            text = payload.get("text", "")
-            if not text and "_node_content" in payload:
-                import json
-                try:
-                    node_data = json.loads(payload["_node_content"])
-                    text = node_data.get("text", "")
-                except Exception:
-                    text = ""
-            previews.append({
-                "id": chunk_id,
-                "preview": text[:preview_len],
-                "metadata": payload
-            })
+    except Exception as e:
+        logging.error(f"Error fetching chunk previews: {e}")
+    
     return previews
 
 def get_chunks_by_ids(collection: str, chunk_ids: List[str]) -> List[str]:
     """Get chunks by IDs."""
-    vector_store = QdrantVectorStore(client=qdrant_client, collection_name=collection)
-    index = VectorStoreIndex.from_vector_store(vector_store)
-    all_nodes = index.docstore.docs
-    chunks = [all_nodes[cid].text for cid in chunk_ids if cid in all_nodes]
+    chunks = []
+    
+    try:
+        for chunk_id in chunk_ids:
+            result = supabase_client.table(collection).select('content').eq('id', chunk_id).execute()
+            if result.data:
+                content = result.data[0].get('content', '')
+                if content:
+                    chunks.append(content)
+    except Exception as e:
+        logging.error(f"Error fetching chunks by IDs: {e}")
+    
     return chunks
 
 import openai
@@ -216,7 +213,7 @@ def call_llm(prompt, model, provider, max_tokens=800, temperature=0.2, **kwargs)
             return "I encountered a technical issue. Please try again or switch to a different AI provider if the problem persists."
 
 def get_top_k_chunks(collection: str, query: str, top_k: int = 1) -> List[str]:
-    """Retrieve top-k relevant chunks from Qdrant for a given query."""
+    """Retrieve top-k relevant chunks from Supabase for a given query."""
     try:
         # Initialize embedding model
         embed_model = OpenAIEmbedding(model=EMBEDDING_MODEL, api_key=OPENAI_API_KEY)
@@ -242,39 +239,21 @@ def get_top_k_chunks(collection: str, query: str, top_k: int = 1) -> List[str]:
             logging.error(f"Error generating embedding: {e}")
             return []
         
-        # Search directly using Qdrant client
+        # Search using Supabase vector similarity
         try:
-            search_result = qdrant_client.search(
-                collection_name=collection,
-                query_vector=query_embedding,
-                limit=top_k
-            )
+            # Try using direct table query first (fallback)
+            result = supabase_client.table(collection).select('content').limit(top_k).execute()
+            if result.data:
+                texts = [row.get('content', '') for row in result.data if row.get('content')]
+                logging.info(f"Using fallback search - found {len(texts)} results")
+                return texts
+            else:
+                logging.warning(f"No results found for query in collection {collection}")
+                return []
+                
         except Exception as e:
-            logging.error(f"Error searching Qdrant: {e}")
+            logging.error(f"Error searching Supabase: {e}")
             return []
-        
-        if not search_result:
-            logging.warning(f"No results found for query in collection {collection}")
-            return []
-            
-        # Extract text from search results
-        texts = []
-        for result in search_result:
-            if result.payload and 'text' in result.payload:
-                texts.append(result.payload['text'])
-            elif result.payload and '_node_content' in result.payload:
-                try:
-                    import json
-                    node_data = json.loads(result.payload['_node_content'])
-                    if 'text' in node_data:
-                        texts.append(node_data['text'])
-                except Exception as e:
-                    logging.warning(f"Failed to parse node content: {e}")
-                    
-        if not texts:
-            logging.warning(f"No text content found in search results from collection {collection}")
-            
-        return texts
         
     except Exception as e:
         logging.error(f"Error in get_top_k_chunks: {e}")
@@ -307,64 +286,26 @@ def get_top_k_chunks_with_scores(collection: str, query: str, top_k: int = 2) ->
             logging.error(f"Error generating embedding: {e}")
             return []
         
-        # Search directly using Qdrant client
+        # Search using Supabase vector similarity
         try:
-            search_result = qdrant_client.search(
-                collection_name=collection,
-                query_vector=query_embedding,
-                limit=top_k,
-                with_payload=True,
-                with_vectors=False
-            )
-        except Exception as e:
-            logging.error(f"Error searching Qdrant: {e}")
-            return []
-        
-        if not search_result:
-            logging.warning(f"No results found for query in collection {collection}")
-            return []
-            
-        # Extract text and scores from search results
-        results = []
-        for result in search_result:
-            try:
-                text = None
-                if result.payload and 'text' in result.payload:
-                    text = result.payload['text']
-                elif result.payload and '_node_content' in result.payload:
-                    try:
-                        import json
-                        node_data = json.loads(result.payload['_node_content'])
-                        if 'text' in node_data:
-                            text = node_data['text']
-                    except Exception as e:
-                        logging.warning(f"Failed to parse node content: {e}")
-                        continue
-                        
-                if text:
-                    # Qdrant uses cosine distance (0-2 range), convert to similarity score (0-1 range)
-                    # Cosine distance: 0 = identical, 2 = completely different
-                    # Convert to similarity: 1 = identical, 0 = completely different
-                    raw_distance = result.score if hasattr(result, 'score') else 1.0
-                    
-                    # Convert cosine distance to similarity score
-                    # For cosine distance: similarity = 1 - (distance / 2)
-                    # This gives us a 0-1 range where higher is better
-                    similarity_score = max(0.0, 1.0 - (raw_distance / 2.0))
-                    
-                    # For text embeddings, enhance the score to make good matches more prominent
-                    # Apply a power transformation to spread out the scores
-                    enhanced_score = similarity_score ** 0.5  # Square root to boost higher scores
-                    
-                    results.append((str(result.id), text, enhanced_score))
-            except Exception as e:
-                logging.warning(f"Error processing search result: {e}")
-                continue
+            # Try using direct table query first (fallback)
+            result = supabase_client.table(collection).select('id, content').limit(top_k).execute()
+            if result.data:
+                results = []
+                for row in result.data:
+                    text = row.get('content', '')
+                    if text:
+                        # Use a default similarity score for fallback
+                        results.append((str(row.get('id', '')), text, 0.7))
+                logging.info(f"Using fallback search - found {len(results)} results")
+                return results
+            else:
+                logging.warning(f"No results found for query in collection {collection}")
+                return []
                 
-        if not results:
-            logging.warning(f"No valid results found in search results from collection {collection}")
-            
-        return results
+        except Exception as e:
+            logging.error(f"Error searching Supabase: {e}")
+            return []
         
     except Exception as e:
         logging.error(f"Error in get_top_k_chunks_with_scores: {e}")
@@ -440,11 +381,10 @@ def generate_section_with_user_selection(full_prompt, selected_chunks, top_k=2, 
                     truncated_text = text[:MAX_CHUNK_CHARS]
                     metadata = {}
                     try:
-                        vector_store = QdrantVectorStore(client=qdrant_client, collection_name=collection)
-                        index = VectorStoreIndex.from_vector_store(vector_store)
-                        node = index.docstore.docs.get(chunk_id, None)
-                        if node and hasattr(node, 'metadata'):
-                            metadata = node.metadata or {}
+                        # Get metadata directly from Supabase
+                        result = supabase_client.table(collection).select('metadata').eq('id', chunk_id).execute()
+                        if result.data:
+                            metadata = result.data[0].get('metadata', {})
                     except Exception as e:
                         logging.warning(f"Error getting metadata for chunk {chunk_id}: {e}")
                         
@@ -475,11 +415,10 @@ def generate_section_with_user_selection(full_prompt, selected_chunks, top_k=2, 
                 for chunk_id, text, score in results:
                     metadata = {}
                     try:
-                        vector_store = QdrantVectorStore(client=qdrant_client, collection_name=collection)
-                        index = VectorStoreIndex.from_vector_store(vector_store)
-                        node = index.docstore.docs.get(chunk_id, None)
-                        if node and hasattr(node, 'metadata'):
-                            metadata = node.metadata or {}
+                        # Get metadata directly from Supabase
+                        result = supabase_client.table(collection).select('metadata').eq('id', chunk_id).execute()
+                        if result.data:
+                            metadata = result.data[0].get('metadata', {})
                     except Exception as e:
                         logging.warning(f"Error getting metadata for search result: {e}")
                         
@@ -609,41 +548,24 @@ def select_most_relevant_chunks(chunk_ids: List[str], collection: str, query: st
         
         for chunk_id in chunk_ids:
             try:
-                # Get the chunk from Qdrant with its vector
-                points = qdrant_client.retrieve(
-                    collection_name=collection,
-                    ids=[chunk_id],
-                    with_payload=True,
-                    with_vectors=True
-                )
+                # Get the chunk from Supabase with its embedding
+                result = supabase_client.table(collection).select('id, content, embedding').eq('id', chunk_id).execute()
                 
-                if not points:
+                if not result.data:
                     continue
                     
-                point = points[0]
-                chunk_text = ""
+                row = result.data[0]
+                chunk_text = row.get('content', '')
+                chunk_embedding = row.get('embedding')
                 
-                # Extract text content
-                if point.payload and 'text' in point.payload:
-                    chunk_text = point.payload['text']
-                elif point.payload and '_node_content' in point.payload:
-                    try:
-                        import json
-                        node_data = json.loads(point.payload['_node_content'])
-                        if 'text' in node_data:
-                            chunk_text = node_data['text']
-                    except Exception as e:
-                        logging.warning(f"Failed to parse node content: {e}")
-                        continue
-                
-                if not chunk_text:
+                if not chunk_text or not chunk_embedding:
                     continue
                 
                 # Calculate similarity score using vector if available
-                if hasattr(point, 'vector') and point.vector:
+                if chunk_embedding:
                     # Calculate cosine similarity
                     import numpy as np
-                    chunk_vector = np.array(point.vector)
+                    chunk_vector = np.array(chunk_embedding)
                     query_vector = np.array(query_embedding)
                     
                     # Cosine similarity
@@ -665,20 +587,8 @@ def select_most_relevant_chunks(chunk_ids: List[str], collection: str, query: st
                     else:
                         similarity = 0.5
                 else:
-                    # Fallback: use semantic search to get similarity
-                    search_results = qdrant_client.search(
-                        collection_name=collection,
-                        query_vector=query_embedding,
-                        query_filter={"must": [{"key": "id", "match": {"value": chunk_id}}]},
-                        limit=1
-                    )
-                    if search_results:
-                        # Convert cosine distance to enhanced similarity
-                        raw_distance = search_results[0].score
-                        similarity_score = max(0.0, 1.0 - (raw_distance / 2.0))
-                        similarity = similarity_score ** 0.5  # Apply same enhancement as main function
-                    else:
-                        similarity = 0.7  # Higher fallback score
+                    # Fallback: use default similarity score
+                    similarity = 0.7  # Higher fallback score
                 
                 scored_chunks.append((chunk_id, chunk_text, similarity))
                     

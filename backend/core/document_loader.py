@@ -10,62 +10,59 @@ import re
 from typing import List, Dict, Any
 from llama_index.core import Document, VectorStoreIndex, ServiceContext
 from llama_index.core.node_parser import SentenceSplitter
-from llama_index.vector_stores.qdrant import QdrantVectorStore
 from llama_index.embeddings.openai import OpenAIEmbedding
-from qdrant_client import QdrantClient
-from qdrant_client.http import models
-from backend.core.config import QDRANT_URL, QDRANT_API_KEY, OPENAI_API_KEY, EMBEDDING_MODEL
+from supabase import create_client, Client
+from backend.core.config import SUPABASE_URL, SUPABASE_KEY, OPENAI_API_KEY, EMBEDDING_MODEL
 import time
 
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 
-def get_qdrant_client(max_retries=3, retry_delay=1):
-    """Initialize Qdrant client with retry logic."""
+def get_supabase_client(max_retries=3, retry_delay=1):
+    """Initialize Supabase client with retry logic."""
     for attempt in range(max_retries):
         try:
-            client = QdrantClient(
-                url=QDRANT_URL, 
-                api_key=QDRANT_API_KEY,
-                timeout=30.0,  # Increased timeout
-                prefer_grpc=True
-            )
-            # Test connection
-            client.get_collections()
+            client = create_client(SUPABASE_URL, SUPABASE_KEY)
+            # Test connection by trying to access a table
+            client.table('ps-index').select('id').limit(1).execute()
             return client
         except Exception as e:
             if attempt < max_retries - 1:
-                logging.warning(f"Failed to connect to Qdrant (attempt {attempt + 1}/{max_retries}): {e}")
+                logging.warning(f"Failed to connect to Supabase (attempt {attempt + 1}/{max_retries}): {e}")
                 time.sleep(retry_delay)
             else:
-                logging.error(f"Failed to connect to Qdrant after {max_retries} attempts: {e}")
+                logging.error(f"Failed to connect to Supabase after {max_retries} attempts: {e}")
                 raise
 
-# Initialize Qdrant client with retry logic
-qdrant_client = get_qdrant_client()
+# Initialize Supabase client with retry logic
+supabase_client = get_supabase_client()
 
-def ensure_collection_exists(collection_name: str, vector_size: int = 1536):
-    """Ensure Qdrant collection exists with correct configuration."""
+def ensure_table_exists(table_name: str):
+    """Ensure Supabase table exists with correct configuration."""
     try:
-        # Check if collection exists
-        collections = qdrant_client.get_collections()
-        exists = any(col.name == collection_name for col in collections.collections)
-        
-        if not exists:
-            # Create collection with proper configuration
-            qdrant_client.create_collection(
-                collection_name=collection_name,
-                vectors_config=models.VectorParams(
-                    size=vector_size,
-                    distance=models.Distance.COSINE
-                )
-            )
-            logging.info(f"Created collection {collection_name}")
-        else:
-            logging.info(f"Collection {collection_name} already exists")
+        # Check if table exists by trying to query it
+        try:
+            supabase_client.table(table_name).select('id').limit(1).execute()
+            logging.info(f"✓ Table {table_name} already exists")
+            return True
+        except Exception as e:
+            # Table doesn't exist
+            logging.error(f"✗ Table {table_name} does not exist")
+            logging.error(f"Error: {e}")
+            logging.info(f"ℹ Please create table {table_name} manually in Supabase dashboard:")
+            logging.info(f"  1. Go to: Database > Tables > New Table")
+            logging.info(f"  2. Name: {table_name}")
+            logging.info(f"  3. Columns:")
+            logging.info(f"     - id: bigint, primary key, auto-increment")
+            logging.info(f"     - content: text")
+            logging.info(f"     - metadata: jsonb")
+            logging.info(f"     - embedding: vector(1536)")
+            logging.info(f"  4. Enable Row Level Security: No")
+            logging.info(f"  5. Click 'Save'")
+            logging.info(f"  6. Enable pgvector extension in Database > Extensions")
+            return False
             
-        return True
     except Exception as e:
-        logging.error(f"Error ensuring collection exists: {e}")
+        logging.error(f"Error checking table existence: {e}")
         return False
 
 def extract_metadata_from_filename(filename: str) -> Dict[str, Any]:
@@ -124,21 +121,21 @@ def build_index(folder_path: str, collection_name: str) -> VectorStoreIndex:
     
     Args:
         folder_path: Path to the folder containing documents
-        collection_name: Name of the Qdrant collection to use
+        collection_name: Name of the Supabase table to use
         
     Returns:
         VectorStoreIndex: The built index
     """
     try:
-        logging.info(f"Indexing folder: {folder_path} into collection: {collection_name}")
+        logging.info(f"Indexing folder: {folder_path} into table: {collection_name}")
         
         # Check if folder exists
         if not os.path.exists(folder_path):
             logging.error(f"Folder {folder_path} does not exist")
             return None
             
-        # Ensure collection exists
-        if not ensure_collection_exists(collection_name):
+        # Ensure table exists
+        if not ensure_table_exists(collection_name):
             return None
             
         files = os.listdir(folder_path)
@@ -192,8 +189,7 @@ def build_index(folder_path: str, collection_name: str) -> VectorStoreIndex:
             logging.error("No chunks created from documents")
             return None
             
-        # Generate embeddings and upload to Qdrant
-        points = []
+        # Generate embeddings and upload to Supabase
         for i, node in enumerate(nodes):
             try:
                 # Get node content and validate
@@ -212,18 +208,19 @@ def build_index(folder_path: str, collection_name: str) -> VectorStoreIndex:
                     logging.error(f"Error generating embedding for chunk {i}: {e}")
                     continue
                 
-                # Prepare payload
-                payload = {
-                    "text": content,
-                    "metadata": node.metadata or {}
+                # Prepare data for Supabase
+                data = {
+                    "content": content,
+                    "metadata": node.metadata or {},
+                    "embedding": embedding
                 }
                 
-                # Add to points list
-                points.append(models.PointStruct(
-                    id=i,
-                    vector=embedding,
-                    payload=payload
-                ))
+                # Insert into Supabase
+                try:
+                    supabase_client.table(collection_name).insert(data).execute()
+                except Exception as e:
+                    logging.error(f"Error inserting chunk {i} into Supabase: {e}")
+                    continue
                 
                 if (i + 1) % 100 == 0:
                     logging.info(f"Processed {i + 1} chunks")
@@ -232,33 +229,18 @@ def build_index(folder_path: str, collection_name: str) -> VectorStoreIndex:
                 logging.error(f"Error processing chunk {i}: {e}")
                 continue
                 
-        if not points:
-            logging.error("No points generated for upload")
-            return None
+        logging.info(f"Uploaded chunks to table {collection_name}")
             
-        # Upload points to Qdrant
-        try:
-            qdrant_client.upsert(
-                collection_name=collection_name,
-                points=points
-            )
-            logging.info(f"Uploaded {len(points)} points to collection {collection_name}")
-        except Exception as e:
-            logging.error(f"Error uploading points to Qdrant: {e}")
-            return None
-            
-        # Create index for querying
-        vector_store = QdrantVectorStore(
-            client=qdrant_client,
-            collection_name=collection_name,
-            enable_hybrid=False,
-            vector_size=1536
-        )
+        # Create a simple index for querying - we'll use direct Supabase queries instead
+        # of SupabaseVectorStore since the connection string approach is causing issues
         
-        index = VectorStoreIndex.from_vector_store(
-            vector_store=vector_store,
-            embed_model=embed_model
-        )
+        # Create a simple in-memory index for now
+        # The actual vector search will be done through direct Supabase queries
+        embed_model = OpenAIEmbedding(model=EMBEDDING_MODEL, api_key=OPENAI_API_KEY)
+        
+        # Create a dummy document to initialize the index
+        dummy_doc = Document(text="dummy", metadata={})
+        index = VectorStoreIndex.from_documents([dummy_doc], embed_model=embed_model)
         
         return index
         

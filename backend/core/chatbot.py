@@ -14,20 +14,15 @@ from .generator import (
     count_tokens, truncate_chunks_to_limit, call_llm,
     get_top_k_chunks_with_scores, OPENAI_API_KEY
 )
-from qdrant_client import QdrantClient
+from supabase import create_client, Client
 from llama_index.embeddings.openai import OpenAIEmbedding
 
-# Configure Qdrant client
-QDRANT_URL = os.getenv("QDRANT_URL", "https://6a1e279b-b34d-4b90-b58f-8ec1179e0128.us-west-1-0.aws.cloud.qdrant.io")
-QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
+# Configure Supabase client
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 EMBEDDING_MODEL = "text-embedding-3-small"
 
-qdrant_client = QdrantClient(
-    url=QDRANT_URL,
-    port=6333,
-    api_key=QDRANT_API_KEY,
-    https=True,
-)
+supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def search_external(query: str, search_type: str = "medical", max_results: int = 5) -> Dict[str, Any]:
     """Search external sources using Serper API"""
@@ -150,55 +145,67 @@ Instructions:
         return f"Found {len(results)} sources but couldn't generate summary."
 
 def chat_with_documents(query: str, collections: List[str], provider: str = "openai", model: str = "gpt-3.5-turbo", chunks_per_collection: int = 1) -> Dict[str, Any]:
-    """Query documents with optimized chunk management for chatbot use"""
+    """
+    Chat with documents using vector search.
+    
+    Args:
+        query: User's question
+        collections: List of collection names to search
+        provider: AI provider (openai or groq)
+        model: Model name
+        chunks_per_collection: Number of chunks to retrieve per collection
+        
+    Returns:
+        Dictionary with answer and sources
+    """
     try:
-        # For each collection, get relevant chunks with metadata
+        logging.info(f"Chat with documents: {query[:100]}...")
+        
         all_chunks = []
         chunk_sources = []
         
-        # Use user-specified chunks_per_collection (default = 1 for optimal performance)
-        # This ensures fast responses and minimal token usage
-        
         for collection in collections:
-            # Use enhanced function to get chunks with metadata - already optimized for relevance
-            chunks_with_scores = get_top_k_chunks_with_scores(collection, query, top_k=chunks_per_collection)
+            logging.info(f"Searching collection: {collection}")
             
-            for chunk_id, chunk_text, score in chunks_with_scores:
+            # Get relevant chunks with scores
+            results = get_top_k_chunks_with_scores(collection, query, top_k=chunks_per_collection)
+            
+            if not results:
+                logging.warning(f"No results found in collection {collection}")
+                continue
+                
+            for chunk_id, chunk_text, score in results:
+                logging.info(f"Found chunk with score {score:.3f}")
                 all_chunks.append(chunk_text)
                 
                 # Extract source information from metadata
                 try:
-                    # Get point with payload from Qdrant
-                    try:
-                        point_id = int(chunk_id)
-                    except ValueError:
-                        point_id = chunk_id
+                    # Get row with metadata from Supabase
+                    result = supabase_client.table(collection).select('id, metadata').eq('id', chunk_id).execute()
                     
-                    point = qdrant_client.retrieve(
-                        collection_name=collection,
-                        ids=[point_id],
-                        with_payload=True
-                    )[0]
-                    
-                    # Try multiple ways to extract metadata
-                    metadata = point.payload.get("metadata", {})
-                    
-                    # Collection-based mapping for clean names
-                    collection_map = {
-                        'ps-index': 'Protocol Summary (PS)',
-                        'pt-index': 'Protocol Template (PT)', 
-                        'rp-index': 'Reference Protocol (RP)',
-                        'ib-index': 'Investigator\'s Brochure (IB)'
-                    }
-                    
-                    # Use collection mapping
-                    if collection in collection_map:
-                        source_info = collection_map[collection]
+                    if result.data:
+                        row = result.data[0]
+                        metadata = row.get("metadata", {})
+                        
+                        # Collection-based mapping for clean names
+                        collection_map = {
+                            'ps-index': 'Protocol Summary (PS)',
+                            'pt-index': 'Protocol Template (PT)', 
+                            'rp-index': 'Reference Protocol (RP)',
+                            'ib-index': 'Investigator\'s Brochure (IB)'
+                        }
+                        
+                        # Use collection mapping
+                        if collection in collection_map:
+                            source_info = collection_map[collection]
+                        else:
+                            source_info = f"{collection.replace('-index', '').upper()} Document"
+                        
+                        chunk_sources.append(source_info)
                     else:
-                        source_info = f"{collection.replace('-index', '').upper()} Document"
-                    
-                    chunk_sources.append(source_info)
-                    
+                        doc_type = collection.replace('-index', '').upper()
+                        chunk_sources.append(f"{doc_type} Document")
+                        
                 except Exception as e:
                     logging.error(f"Error getting source info: {e}")
                     doc_type = collection.replace('-index', '').upper()
@@ -207,153 +214,200 @@ def chat_with_documents(query: str, collections: List[str], provider: str = "ope
         if not all_chunks:
             return {"answer": "I couldn't find relevant information in the selected documents.", "sources": []}
         
-        # Deduplicate sources while preserving order
-        unique_sources = []
-        for source in chunk_sources:
-            if source not in unique_sources:
-                unique_sources.append(source)
+        # Truncate chunks if needed
+        all_chunks = truncate_chunks_to_limit(all_chunks, max_tokens=6000)
         
-        # Apply much stricter token limits for chatbot to prevent token overload
-        max_content_tokens = 3000 if provider == "groq" else 4000
-        truncated_chunks = truncate_chunks_to_limit(all_chunks, max_content_tokens)
+        # Create context from chunks
+        context = "\n\n".join(all_chunks)
         
-        # Log chunk statistics for debugging
-        logging.info(f"Chatbot: Using {len(truncated_chunks)} chunks from {len(collections)} collections, ~{count_tokens(' '.join(truncated_chunks))} tokens")
+        # Create prompt
+        prompt = f"""You are a helpful medical writing assistant. Answer the following question based on the provided document context. Be concise but thorough, and cite your sources when possible.
+
+Question: {query}
+
+Document Context:
+{context}
+
+Answer:"""
         
-        # Create a cleaner prompt for both Groq and OpenAI models
-        prompt = f"""Answer this clinical trial question using the provided document context. Be professional and specific. Do NOT include reference numbers like [1], [2] in your response - the sources will be listed separately.
-
-QUESTION: {query}
-
-CONTEXT:
-{chr(10).join([chunk for chunk in truncated_chunks])}
-
-AVAILABLE SOURCES: {', '.join(unique_sources)}
-
-Instructions:
-1. Provide a helpful, informative answer based on the context
-2. Use proper medical terminology and be precise
-3. Write naturally without reference numbers in the text
-4. If specific information isn't available, mention what related information is provided
-5. Be as helpful as possible while staying accurate to the source material"""
-        
-        # Check final token count and apply emergency truncation if needed
-        final_tokens = count_tokens(prompt, model)
-        if final_tokens > 10000:
-            logging.warning(f"Large prompt detected: {final_tokens} tokens for model {model}")
-            if provider == "groq" and final_tokens > 11000:
-                # Emergency truncation for Groq
-                max_emergency_tokens = 2000  # Very aggressive for chatbot
-                truncated_chunks = truncate_chunks_to_limit(all_chunks, max_emergency_tokens)
-                prompt = f"""Answer the clinical trial question using the provided context. Be specific and professional.
-
-QUESTION: {query}
-
-CONTEXT: {' '.join([chunk for chunk in truncated_chunks])}
-
-AVAILABLE SOURCES: {', '.join(unique_sources)}"""
-        
-        # Use existing LLM call function
-        response = call_llm(
-            prompt=prompt,
-            model=model,
-            provider=provider,
-            max_tokens=800,
-            temperature=0.2
-        )
-        
-        return {
-            "answer": response,
-            "sources": unique_sources,
-            "num_chunks": len(truncated_chunks)
-        }
-    
+        # Get response from LLM
+        try:
+            answer = call_llm(prompt, model=model, provider=provider, max_tokens=800)
+            
+            # Add source information
+            unique_sources = list(set(chunk_sources))
+            sources_text = f"\n\nSources: {', '.join(unique_sources)}" if unique_sources else ""
+            
+            return {
+                "answer": answer + sources_text,
+                "sources": unique_sources,
+                "chunks_used": len(all_chunks)
+            }
+            
+        except Exception as e:
+            logging.error(f"Error calling LLM: {e}")
+            return {"answer": "I encountered an error while processing your question. Please try again.", "sources": []}
+            
     except Exception as e:
         logging.error(f"Error in chat_with_documents: {e}")
-        return {
-            "answer": "I encountered an error while searching documents. Please try again.",
-            "sources": []
-        }
+        return {"answer": "I encountered an error while searching the documents. Please try again.", "sources": []}
 
-def chat_with_documents_and_web(query: str, collections: List[str], search_type: str = "documents", 
-                               provider: str = "openai", model: str = "gpt-3.5-turbo", 
-                               web_search_type: str = "medical", chunks_per_collection: int = 1) -> Dict[str, Any]:
+def chat_with_web_search(query: str, provider: str = "openai", model: str = "gpt-3.5-turbo") -> Dict[str, Any]:
     """
-    Enhanced chat function supporting documents, web, and hybrid search modes
+    Chat with web search results.
+    
+    Args:
+        query: User's question
+        provider: AI provider (openai or groq)
+        model: Model name
+        
+    Returns:
+        Dictionary with answer and sources
     """
     try:
-        doc_result = None
-        web_result = None
+        logging.info(f"Web search for: {query}")
         
-        # Document search
-        if search_type in ["documents", "hybrid"] and collections:
-            doc_result = chat_with_documents(query, collections, provider, model, chunks_per_collection)
+        # Get web search results
+        search_results = perform_web_search(query)
         
-        # Web search
-        if search_type in ["web", "hybrid"]:
-            search_results = search_external(
-                query=query, 
-                search_type=web_search_type,
-                max_results=3  # Reduced for token management
-            )
+        if not search_results:
+            return {"answer": "I couldn't find relevant information from web search.", "sources": []}
+        
+        # Create context from search results
+        context_parts = []
+        sources = []
+        
+        for result in search_results[:5]:  # Limit to top 5 results
+            context_parts.append(f"Title: {result['title']}\nSnippet: {result['snippet']}\nURL: {result['url']}")
+            sources.append(result['url'])
+        
+        context = "\n\n".join(context_parts)
+        
+        # Create prompt
+        prompt = f"""You are a helpful medical writing assistant. Answer the following question based on the provided web search results. Be concise but thorough, and cite your sources when possible.
+
+Question: {query}
+
+Web Search Results:
+{context}
+
+Answer:"""
+        
+        # Get response from LLM
+        try:
+            answer = call_llm(prompt, model=model, provider=provider, max_tokens=800)
             
-            if search_results["results"]:
-                web_summary = summarize_search_results(
-                    results=search_results["results"],
-                    query=query,
-                    model=model,
-                    provider=provider
-                )
-                web_result = {
-                    "summary": web_summary,
-                    "sources": search_results["results"]
-                }
+            # Add source information
+            sources_text = f"\n\nSources: {', '.join(sources)}" if sources else ""
+            
+            return {
+                "answer": answer + sources_text,
+                "sources": sources,
+                "search_results_count": len(search_results)
+            }
+            
+        except Exception as e:
+            logging.error(f"Error calling LLM: {e}")
+            return {"answer": "I encountered an error while processing your question. Please try again.", "sources": []}
+            
+    except Exception as e:
+        logging.error(f"Error in chat_with_web_search: {e}")
+        return {"answer": "I encountered an error while searching the web. Please try again.", "sources": []}
+
+def chat_with_documents_and_web(query: str, collections: List[str], provider: str = "openai", model: str = "gpt-3.5-turbo", chunks_per_collection: int = 1) -> Dict[str, Any]:
+    """
+    Chat with both documents and web search.
+    
+    Args:
+        query: User's question
+        collections: List of collection names to search
+        provider: AI provider (openai or groq)
+        model: Model name
+        chunks_per_collection: Number of chunks to retrieve per collection
         
-        # Return appropriate result based on search type
-        if search_type == "hybrid" and doc_result and web_result:
-            # Combine results
-            combined_answer = f"""**From Your Documents:**
+    Returns:
+        Dictionary with answer and sources
+    """
+    try:
+        logging.info(f"Hybrid search for: {query}")
+        
+        # Get document results
+        doc_result = chat_with_documents(query, collections, provider, model, chunks_per_collection)
+        
+        # Get web search results
+        web_result = chat_with_web_search(query, provider, model)
+        
+        # Combine results
+        combined_answer = f"""Based on your documents and web search:
+
+**From Your Documents:**
 {doc_result['answer']}
 
-**From External Sources:**
-{web_result['summary']}"""
-            
-            return {
-                "answer": combined_answer,
-                "sources": doc_result.get("sources", []),
-                "web_sources": web_result["sources"],
-                "search_type": "hybrid"
-            }
-        elif search_type == "web":
-            if web_result:
-                return {
-                    "answer": web_result["summary"],
-                    "sources": [],
-                    "web_sources": web_result["sources"],
-                    "search_type": "web"
-                }
-            else:
-                # Handle case where web search failed
-                error_message = search_results.get("message", "No relevant web sources found for your query.")
-                return {
-                    "answer": error_message,
-                    "sources": [],
-                    "web_sources": [],
-                    "search_type": "web"
-                }
-        else:  # documents mode
-            return {
-                "answer": doc_result["answer"] if doc_result else "No results found.",
-                "sources": doc_result.get("sources", []) if doc_result else [],
-                "web_sources": [],
-                "search_type": "documents"
-            }
-    
+**From Web Search:**
+{web_result['answer']}"""
+        
+        # Combine sources
+        all_sources = doc_result.get('sources', []) + web_result.get('sources', [])
+        unique_sources = list(set(all_sources))
+        
+        return {
+            "answer": combined_answer,
+            "sources": unique_sources,
+            "document_sources": doc_result.get('sources', []),
+            "web_sources": web_result.get('sources', []),
+            "chunks_used": doc_result.get('chunks_used', 0),
+            "search_results_count": web_result.get('search_results_count', 0)
+        }
+        
     except Exception as e:
         logging.error(f"Error in chat_with_documents_and_web: {e}")
-        return {
-            "answer": "Error occurred. Please try again.",
-            "sources": [],
-            "web_sources": [],
-            "search_type": search_type
-        } 
+        return {"answer": "I encountered an error while processing your request. Please try again.", "sources": []}
+
+def perform_web_search(query: str, max_results: int = 10) -> List[Dict[str, str]]:
+    """
+    Perform web search using Serper API.
+    
+    Args:
+        query: Search query
+        max_results: Maximum number of results to return
+        
+    Returns:
+        List of search results with title, snippet, and URL
+    """
+    try:
+        serper_api_key = os.getenv("SERPER_API_KEY")
+        if not serper_api_key:
+            logging.warning("SERPER_API_KEY not found, skipping web search")
+            return []
+        
+        url = "https://google.serper.dev/search"
+        headers = {
+            'X-API-KEY': serper_api_key,
+            'Content-Type': 'application/json'
+        }
+        
+        payload = {
+            'q': query,
+            'num': max_results
+        }
+        
+        response = requests.post(url, headers=headers, json=payload, timeout=10)
+        response.raise_for_status()
+        
+        data = response.json()
+        
+        results = []
+        if 'organic' in data:
+            for result in data['organic'][:max_results]:
+                results.append({
+                    'title': result.get('title', ''),
+                    'snippet': result.get('snippet', ''),
+                    'url': result.get('link', '')
+                })
+        
+        logging.info(f"Found {len(results)} web search results")
+        return results
+        
+    except Exception as e:
+        logging.error(f"Error performing web search: {e}")
+        return [] 

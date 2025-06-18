@@ -361,25 +361,40 @@ async def chat_with_assistant(request: ChatRequest):
     """Chat with documents and/or web search"""
     try:
         # Import from the new chatbot module
-        from backend.core.chatbot import chat_with_documents_and_web
+        from backend.core.chatbot import chat_with_documents, chat_with_web_search, chat_with_documents_and_web
         
-        # Use the unified chatbot function that handles all search types
-        response = chat_with_documents_and_web(
-            query=request.query,
-            collections=request.collections,
-            search_type=request.search_type,
-            provider=request.provider,
-            model=request.model,
-            web_search_type=request.web_search_type,
-            chunks_per_collection=request.chunks_per_collection
-        )
+        # Route to appropriate function based on search type
+        if request.search_type == "documents":
+            response = chat_with_documents(
+                query=request.query,
+                collections=request.collections,
+                provider=request.provider,
+                model=request.model,
+                chunks_per_collection=request.chunks_per_collection
+            )
+        elif request.search_type == "web":
+            response = chat_with_web_search(
+                query=request.query,
+                provider=request.provider,
+                model=request.model
+            )
+        else:  # "hybrid" or default
+            response = chat_with_documents_and_web(
+                query=request.query,
+                collections=request.collections,
+                provider=request.provider,
+                model=request.model,
+                chunks_per_collection=request.chunks_per_collection
+            )
         
         return {
             "success": True,
             "answer": response["answer"],
             "sources": response.get("sources", []),
+            "document_sources": response.get("document_sources", []),
             "web_sources": response.get("web_sources", []),
-            "search_type": response.get("search_type", request.search_type)
+            "chunks_used": response.get("chunks_used", 0),
+            "search_results_count": response.get("search_results_count", 0)
         }
         
     except Exception as e:
