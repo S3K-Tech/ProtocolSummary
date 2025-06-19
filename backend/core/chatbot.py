@@ -31,7 +31,7 @@ def search_external(query: str, search_type: str = "medical", max_results: int =
         if not SERPER_API_KEY:
             return {
                 "results": [],
-                "message": "Web search is not configured. Please add SERPER_API_KEY to your environment variables to enable web search functionality."
+                "message": "Web search is not configured properly. Please add SERPER_API_KEY to your environment variables to enable web search functionality."
             }
         
         # Define search parameters based on type
