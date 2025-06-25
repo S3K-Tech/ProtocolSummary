@@ -20,7 +20,7 @@ The Clinical Trial Protocol Generator is a comprehensive, AI-powered platform de
 - **Context-Aware**: Automatically finds relevant information from your uploaded documents
 - **Customizable**: Add your own instructions to tailor the output
 
-### 🔍 **Advanced Analysis Tools (AI-Free)**
+### 🔍 **Advanced Analysis Tools **
 - **Drug Information Extraction**: Automatically identify drugs, dosages, frequencies, and administration routes
 - **Grammar & Consistency Checking**: Medical writing quality assessment with ICH M11 compliance validation
 - **Reference Comparison**: Compare generated content against your source documents
