@@ -8,7 +8,7 @@ import re
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
@@ -22,6 +22,7 @@ from .models import SectionReview, SectionHistory, ReviewResponse
 from backend.core.drug_info_extractor import DrugInfoExtractor, DrugInfo
 from backend.core.grammar_consistency_analyzer import analyze_protocol_section
 from dataclasses import asdict
+from backend.utils.redis_utils import check_rate_limit
 
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 
@@ -71,8 +72,13 @@ async def get_available_section_templates():
         logging.error(f"Error getting templates: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+def rate_limit_dependency(request: Request):
+    ip = request.client.host
+    key = f"rate_limit:{ip}"
+    check_rate_limit(key, limit=10, window_seconds=60)  # 10 requests per minute
+
 @app.post("/generate_section_with_chunks")
-async def generate_section_with_chunks(request: SectionRequest):
+async def generate_section_with_chunks(request: SectionRequest, rate_limit=Depends(rate_limit_dependency)):
     """Generate a section with selected chunks."""
     try:
         # Get the template for the selected section
@@ -357,7 +363,7 @@ class ChatRequest(BaseModel):
     chunks_per_collection: int = 1  # Number of chunks per collection (default: 1 for optimal performance)
 
 @app.post("/chatbot/chat")
-async def chat_with_assistant(request: ChatRequest):
+async def chat_with_assistant(request: ChatRequest, rate_limit=Depends(rate_limit_dependency)):
     """Chat with documents and/or web search"""
     try:
         # Import from the new chatbot module

@@ -21,6 +21,8 @@ import json
 import tiktoken
 import re
 
+from backend.utils.redis_utils import get_cache, set_cache
+
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 
 def get_engine(collection, folder):
@@ -46,10 +48,20 @@ def get_engine(collection, folder):
     return _engine_cache[collection]
 
 def get_chunk_previews(collection: str, preview_len: int = 200) -> List[Dict[str, Any]]:
-    """Get chunk previews."""
+    """
+    Get chunk previews for a collection, with Redis caching.
+    Cache key is based on collection and preview length.
+    """
+    if not collection:
+        return []
+    cache_key = f"chunk_previews:{collection}:{preview_len}"
+    try:
+        cached = get_cache("chunk_previews", cache_key)
+        if cached:
+            return cached
+    except Exception as e:
+        logging.warning(f"Redis unavailable for chunk previews: {e}")
     previews = []
-    
-    # Fetch from Supabase directly
     try:
         result = supabase_client.table(collection).select('id, content, metadata').limit(1000).execute()
         for row in result.data:
@@ -63,13 +75,29 @@ def get_chunk_previews(collection: str, preview_len: int = 200) -> List[Dict[str
             })
     except Exception as e:
         logging.error(f"Error fetching chunk previews: {e}")
-    
+    try:
+        set_cache("chunk_previews", cache_key, previews)
+    except Exception as e:
+        logging.warning(f"Redis unavailable for setting chunk previews: {e}")
     return previews
 
 def get_chunks_by_ids(collection: str, chunk_ids: List[str]) -> List[str]:
-    """Get chunks by IDs."""
+    """
+    Get chunks by IDs for a collection, with Redis caching.
+    Cache key is based on collection and joined chunk IDs.
+    """
+    if not collection or not chunk_ids:
+        return []
+    # Sort chunk_ids to ensure consistent cache key
+    sorted_ids = sorted(chunk_ids)
+    cache_key = f"chunks_by_ids:{collection}:{'-'.join(sorted_ids)}"
+    try:
+        cached = get_cache("chunks_by_ids", cache_key)
+        if cached:
+            return cached
+    except Exception as e:
+        logging.warning(f"Redis unavailable for chunk content: {e}")
     chunks = []
-    
     try:
         for chunk_id in chunk_ids:
             result = supabase_client.table(collection).select('content').eq('id', chunk_id).execute()
@@ -79,7 +107,10 @@ def get_chunks_by_ids(collection: str, chunk_ids: List[str]) -> List[str]:
                     chunks.append(content)
     except Exception as e:
         logging.error(f"Error fetching chunks by IDs: {e}")
-    
+    try:
+        set_cache("chunks_by_ids", cache_key, chunks)
+    except Exception as e:
+        logging.warning(f"Redis unavailable for setting chunk content: {e}")
     return chunks
 
 import openai
@@ -341,6 +372,9 @@ def check_prompt_size_and_truncate(prompt: str, provider: str = "openai", model:
     return prompt
 
 def generate_section_with_user_selection(full_prompt, selected_chunks, top_k=2, model="gpt-4-turbo", provider="openai", temperature=0.2): 
+    from backend.utils.redis_utils import get_cache, set_cache
+    import hashlib
+    import json
     try:
         context_parts = []
         relevant_chunks_info = []
@@ -443,6 +477,18 @@ def generate_section_with_user_selection(full_prompt, selected_chunks, top_k=2, 
         # Check and truncate prompt if necessary for token limits
         composed_prompt = check_prompt_size_and_truncate(composed_prompt, provider, model)
         
+        # --- Redis Caching for LLM completions ---
+        cache_key_data = json.dumps({
+            "prompt": composed_prompt,
+            "model": model,
+            "provider": provider
+        }, sort_keys=True)
+        cache_key = hashlib.sha256(cache_key_data.encode()).hexdigest()
+        cached_output = get_cache("llm_completion", cache_key)
+        if cached_output:
+            logging.info("Returning cached LLM completion result.")
+            return cached_output["output"], composed_prompt, relevant_chunks_info, model, provider
+        
         logging.info("Calling LLM with composed prompt")
         try:
             output = call_llm(composed_prompt, model=model, provider=provider, temperature=temperature)
@@ -452,7 +498,8 @@ def generate_section_with_user_selection(full_prompt, selected_chunks, top_k=2, 
         except Exception as e:
             logging.error(f"Exception in call_llm: {e}")
             return f"[ERROR] LLM error: {str(e)}", full_prompt, relevant_chunks_info, model, provider
-            
+        # Store in cache
+        set_cache("llm_completion", cache_key, {"output": output})
         return output, composed_prompt, relevant_chunks_info, model, provider
         
     except Exception as e:
@@ -610,4 +657,49 @@ def select_most_relevant_chunks(chunk_ids: List[str], collection: str, query: st
         return [(chunk_ids[i], text, 0.7) for i, text in enumerate(texts)]
 
 # chat_with_documents_and_web function moved to backend/core/chatbot.py
+
+def vector_search(query):
+    cached = get_cache("vector_search", query)
+    if cached:
+        return cached
+    # ... perform actual vector search ...
+    result = do_vector_search(query)
+    set_cache("vector_search", query, result)
+    return result
+
+def get_or_cache_embedding(text: str, model: str) -> list:
+    """
+    Get embedding for text and model, using Redis cache if available.
+    Cache key is based on model and SHA256 hash of text.
+    """
+    if not text or not model:
+        return []
+    cache_key = f"embedding:{model}:{hashlib.sha256(text.encode()).hexdigest()}"
+    try:
+        cached = get_cache("embedding", cache_key)
+        if cached:
+            return cached
+    except Exception as e:
+        logging.warning(f"Redis unavailable for embedding: {e}")
+    embed_model = OpenAIEmbedding(model=model, api_key=OPENAI_API_KEY)
+    embedding = embed_model.get_text_embedding(text)
+    try:
+        set_cache("embedding", cache_key, embedding)
+    except Exception as e:
+        logging.warning(f"Redis unavailable for setting embedding: {e}")
+    return embedding
+
+def clear_cache_by_prefix(prefix: str):
+    """
+    Utility function to clear all Redis cache keys with a given prefix.
+    Use with caution! This will remove all cached entries for the prefix.
+    """
+    try:
+        if r is not None:
+            pattern = f"{prefix}:*"
+            for key in r.scan_iter(pattern):
+                r.delete(key)
+            logging.info(f"Cleared cache for prefix: {prefix}")
+    except Exception as e:
+        logging.warning(f"Failed to clear cache for prefix {prefix}: {e}")
 

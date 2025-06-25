@@ -97,6 +97,23 @@ The Clinical Trial Protocol Generator is a comprehensive, AI-powered platform de
    - **Main Interface**: http://localhost:8501
    - **API Documentation**: http://localhost:8000/docs
 
+### Local Redis Stack (for development)
+
+To run Redis Stack locally (recommended for development):
+
+```bash
+docker run -d --name redis-stack-server -p 6379:6379 -p 8001:8001 redis/redis-stack:latest
+```
+
+- This will start Redis Stack on port 6379 (the default Redis port).
+- You can access the RedisInsight UI at [http://localhost:8001](http://localhost:8001) for visual management and monitoring.
+
+Set your `.env`:
+
+```
+REDIS_URL=redis://localhost:6379/0
+```
+
 ## 📖 How to Use
 
 ### 1. Upload Your Documents
