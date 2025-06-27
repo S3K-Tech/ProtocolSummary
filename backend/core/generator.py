@@ -371,8 +371,7 @@ def check_prompt_size_and_truncate(prompt: str, provider: str = "openai", model:
     
     return prompt
 
-def generate_section_with_user_selection(full_prompt, selected_chunks, top_k=2, model="gpt-4-turbo", provider="openai", temperature=0.2): 
-    from backend.utils.redis_utils import get_cache, set_cache
+def generate_section_with_user_selection(full_prompt, selected_chunks, top_k=2, model="gpt-4-turbo", provider="openai", temperature=0.2, regenerate=False): 
     import hashlib
     import json
     try:
@@ -477,19 +476,8 @@ def generate_section_with_user_selection(full_prompt, selected_chunks, top_k=2, 
         # Check and truncate prompt if necessary for token limits
         composed_prompt = check_prompt_size_and_truncate(composed_prompt, provider, model)
         
-        # --- Redis Caching for LLM completions ---
-        cache_key_data = json.dumps({
-            "prompt": composed_prompt,
-            "model": model,
-            "provider": provider
-        }, sort_keys=True)
-        cache_key = hashlib.sha256(cache_key_data.encode()).hexdigest()
-        cached_output = get_cache("llm_completion", cache_key)
-        if cached_output:
-            logging.info("Returning cached LLM completion result.")
-            return cached_output["output"], composed_prompt, relevant_chunks_info, model, provider
-        
-        logging.info("Calling LLM with composed prompt")
+        # Always call LLM, do not use or set cache
+        logging.info("Calling LLM with composed prompt (no cache)")
         try:
             output = call_llm(composed_prompt, model=model, provider=provider, temperature=temperature)
             if not output or output.startswith("[LLM ERROR]"):
@@ -498,10 +486,7 @@ def generate_section_with_user_selection(full_prompt, selected_chunks, top_k=2, 
         except Exception as e:
             logging.error(f"Exception in call_llm: {e}")
             return f"[ERROR] LLM error: {str(e)}", full_prompt, relevant_chunks_info, model, provider
-        # Store in cache
-        set_cache("llm_completion", cache_key, {"output": output})
         return output, composed_prompt, relevant_chunks_info, model, provider
-        
     except Exception as e:
         logging.error(f"Exception in generate_section_with_user_selection: {e}")
         return f"[ERROR] {str(e)}", full_prompt, [], model, provider

@@ -14,6 +14,7 @@ from llama_index.embeddings.openai import OpenAIEmbedding
 from supabase import create_client, Client
 from backend.core.config import SUPABASE_URL, SUPABASE_KEY, OPENAI_API_KEY, EMBEDDING_MODEL
 import time
+import hashlib
 
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 
@@ -197,7 +198,21 @@ def build_index(folder_path: str, collection_name: str) -> VectorStoreIndex:
                 if not content or not isinstance(content, str) or not content.strip():
                     logging.warning(f"Skipping invalid chunk {i}")
                     continue
-                    
+
+                # Compute hash for deduplication (content + filename)
+                filename = node.metadata.get("filename", "") if node.metadata else ""
+                hash_input = (content + filename).encode("utf-8")
+                chunk_hash = hashlib.sha256(hash_input).hexdigest()
+
+                # Check for existing chunk with same hash
+                try:
+                    existing = supabase_client.table(collection_name).select('id').eq('hash', chunk_hash).limit(1).execute()
+                    if existing.data and len(existing.data) > 0:
+                        logging.info(f"Duplicate chunk detected (hash: {chunk_hash}), skipping insert.")
+                        continue
+                except Exception as e:
+                    logging.warning(f"Error checking for duplicate chunk: {e}")
+
                 # Generate embedding
                 try:
                     embedding = embed_model.get_text_embedding(content)
@@ -207,24 +222,25 @@ def build_index(folder_path: str, collection_name: str) -> VectorStoreIndex:
                 except Exception as e:
                     logging.error(f"Error generating embedding for chunk {i}: {e}")
                     continue
-                
+
                 # Prepare data for Supabase
                 data = {
                     "content": content,
                     "metadata": node.metadata or {},
-                    "embedding": embedding
+                    "embedding": embedding,
+                    "hash": chunk_hash
                 }
-                
+
                 # Insert into Supabase
                 try:
                     supabase_client.table(collection_name).insert(data).execute()
                 except Exception as e:
                     logging.error(f"Error inserting chunk {i} into Supabase: {e}")
                     continue
-                
+
                 if (i + 1) % 100 == 0:
                     logging.info(f"Processed {i + 1} chunks")
-                    
+
             except Exception as e:
                 logging.error(f"Error processing chunk {i}: {e}")
                 continue

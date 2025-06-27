@@ -52,6 +52,7 @@ class SectionRequest(BaseModel):
     provider: str
     temperature: float
     top_k: int
+    regenerate: bool = False
 
 # IndexRequest removed - no longer needed
 
@@ -95,7 +96,8 @@ async def generate_section_with_chunks(request: SectionRequest, rate_limit=Depen
             top_k=request.top_k,
             model=request.selected_model,
             provider=request.provider,
-            temperature=request.temperature
+            temperature=request.temperature,
+            regenerate=request.regenerate
         )
         
         if not output or output.startswith("[ERROR]"):
