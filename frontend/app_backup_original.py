@@ -534,14 +534,14 @@ st.markdown('<div class="section-heading"><span class="icon">📄</span>Protocol
 
 # Fetch available section templates from backend (with caching)
 if 'section_templates' not in st.session_state:
-try:
+    try:
         # Add timeout and better error handling
         templates_resp = requests.get(
             "http://localhost:8000/available_section_templates",
             timeout=10  # 10 second timeout
         )
-    templates_resp.raise_for_status()
-    section_templates = templates_resp.json()
+        templates_resp.raise_for_status()
+        section_templates = templates_resp.json()
         
         # Cache the templates in session state
         st.session_state['section_templates'] = section_templates
@@ -642,7 +642,7 @@ with st.sidebar:
             # Upload and index button
             if uploaded_files and st.button(f"📤 Upload & Index {doc_type}", key=f"{doc_type}_index", type="primary"):
                 with st.spinner(f"Processing {doc_type} documents..."):
-            try:
+                    try:
                         # Prepare files for upload
                         files = []
                         for file in uploaded_files:
@@ -659,10 +659,10 @@ with st.sidebar:
                             data = response.json()
                             st.success(f"✅ {data['message']}")
                             st.info(f"Files processed: {', '.join(data['files'])}")
-                else:
+                        else:
                             st.error(f"❌ Upload failed: {response.text}")
                             
-            except Exception as e:
+                    except Exception as e:
                         st.error(f"❌ Error: {str(e)}")
             
             # Show empty state
